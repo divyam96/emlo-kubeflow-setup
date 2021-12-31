@@ -16,11 +16,12 @@ import os
 import json
 from pathlib import Path
 from argparse import ArgumentParser
-from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
+    StochasticWeightAveraging,
+    RichModelSummary
 )
 from pytorch_kfp_components.components.visualization.component import (
     Visualization,
@@ -116,7 +117,8 @@ ptl_dict: dict = parse_input_args(input_str=ptl_args)
 
 # Enabling Tensorboard Logger, ModelCheckpoint, Earlystopping
 
-lr_logger = LearningRateMonitor()
+lr_logger = LearningRateMonitor(logging_interval="step")  # feature 1
+model_summ = RichModelSummary()  # feature 2
 tboard = TensorBoardLogger(TENSORBOARD_ROOT)
 early_stopping = EarlyStopping(
     monitor="val_loss", mode="min", patience=5, verbose=True
@@ -129,7 +131,7 @@ checkpoint_callback = ModelCheckpoint(
     monitor="val_loss",
     mode="min",
 )
-
+swa = StochasticWeightAveraging()  # feature 3
 if "accelerator" in ptl_dict and ptl_dict["accelerator"] == "None":
     ptl_dict["accelerator"] = None
 
@@ -137,7 +139,7 @@ if "accelerator" in ptl_dict and ptl_dict["accelerator"] == "None":
 trainer_args = {
     "logger": tboard,
     "checkpoint_callback": True,
-    "callbacks": [lr_logger, early_stopping, checkpoint_callback],
+    "callbacks": [lr_logger, model_summ, early_stopping, checkpoint_callback, swa],
 }
 
 if not ptl_dict["max_epochs"]:
